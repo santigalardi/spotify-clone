@@ -17,6 +17,8 @@
     "@supabase/auth-ui-react": "^0.4.7",
     "@supabase/auth-ui-shared": "^0.1.8",
     "@supabase/supabase-js": "^2.42.3",
+    "@types/howler": "^2.2.11",
+    "howler": "^2.2.4",
     "next": "14.2.0",
     "query-string": "^9.0.0",
     "react": "^18",
@@ -28,7 +30,6 @@
     "stripe": "^15.1.0",
     "tailwind-merge": "^2.2.2",
     "uniqid": "^5.4.0",
-    "use-sound": "^4.0.1",
     "zustand": "^4.5.2"
   },
   "devDependencies": {

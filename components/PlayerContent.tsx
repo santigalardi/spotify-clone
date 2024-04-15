@@ -1,11 +1,11 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useState, use, useRef } from 'react';
 import { Song } from '@/types';
 import { BsPauseFill, BsPlayFill } from 'react-icons/bs';
 import { AiFillStepBackward, AiFillStepForward } from 'react-icons/ai';
 import { HiSpeakerWave, HiSpeakerXMark } from 'react-icons/hi2';
-import useSound from 'use-sound';
+import { Howl } from 'howler';
 import usePlayer from '@/hooks/usePlayer';
 import MediaItem from './MediaItem';
 import LikeButton from './LikeButton';
@@ -20,6 +20,8 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
   const player = usePlayer();
   const [volume, setVolume] = useState(1);
   const [isPlaying, setIsPlaying] = useState(false);
+  const [progress, setProgress] = useState(0); // Progress in seconds
+  const soundRef = useRef<Howl | null>(null);
   const Icon = isPlaying ? BsPauseFill : BsPlayFill;
   const VolumeIcon = volume === 0 ? HiSpeakerXMark : HiSpeakerWave;
 
@@ -53,30 +55,55 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
     player.setId(previousSong);
   };
 
-  const [play, { pause, sound }] = useSound(songUrl, {
-    volume,
-    onplay: () => setIsPlaying(true),
-    onend: () => {
-      setIsPlaying(false);
-      onPlayNext();
-    },
-    onpause: () => setIsPlaying(false),
-    format: ['mp3'],
-  });
+  const handleVolumeChange = (value: number) => {
+    setVolume(value);
+    soundRef.current?.volume(value);
+  };
+  const handleProgressChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const newProgress = parseInt(event.target.value, 10);
+    setProgress(newProgress);
+    soundRef.current?.seek(newProgress);
+  };
 
   useEffect(() => {
-    sound?.play();
+    soundRef.current = new Howl({
+      src: [songUrl],
+      autoplay: true,
+      volume: volume,
+      onplay: () => setIsPlaying(true),
+      onend: () => {
+        setIsPlaying(false);
+        onPlayNext();
+      },
+      onpause: () => setIsPlaying(false),
+      format: ['mp3'],
+    });
 
     return () => {
-      sound?.unload();
+      if (soundRef.current) {
+        soundRef.current.unload();
+      }
     };
-  }, [sound]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [songUrl]);
+
+  useEffect(() => {
+    const updateProgress = () => {
+      const seek = soundRef.current?.seek() || 0;
+      setProgress(seek);
+      requestAnimationFrame(updateProgress);
+    };
+
+    if (isPlaying) {
+      requestAnimationFrame(updateProgress);
+    }
+  }, [isPlaying]);
 
   const handlePlay = () => {
     if (!isPlaying) {
-      play();
+      soundRef.current?.play();
     } else {
-      pause();
+      soundRef.current?.pause();
     }
   };
 
@@ -104,22 +131,32 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
           <Icon size={30} className="text-black" />
         </div>
       </div>
-      <div className="hidden h-full md:flex justify-center items-center w-full max-w-[722px] gap-x-6">
-        <AiFillStepBackward
-          onClick={onPlayPrevious}
-          size={30}
-          className="text-neutral-400 cursor-pointer hover:text-white transition"
-        />
-        <div
-          onClick={handlePlay}
-          className="flex items-center justify-center h-10 w-10 rounded-full bg-white p-1 cursor-pointer"
-        >
-          <Icon size={30} className="text-black" />
+      <div className="hidden h-full md:flex flex-col justify-center items-center gap-y-2">
+        <div className="h-full md:flex justify-center items-center w-full max-w-[722px] gap-x-6">
+          <AiFillStepBackward
+            onClick={onPlayPrevious}
+            size={30}
+            className="text-neutral-400 cursor-pointer hover:text-white transition"
+          />
+          <div
+            onClick={handlePlay}
+            className="flex items-center justify-center h-10 w-10 rounded-full bg-white p-1 cursor-pointer hover:bg-green-500 transition"
+          >
+            <Icon size={30} className="text-black" />
+          </div>
+          <AiFillStepForward
+            onClick={onPlayNext}
+            size={30}
+            className="text-neutral-400 cursor-pointer hover:text-white transition"
+          />
         </div>
-        <AiFillStepForward
-          onClick={onPlayNext}
-          size={30}
-          className="text-neutral-400 cursor-pointer hover:text-white transition"
+        <input
+          type="range"
+          min={0}
+          max={soundRef.current?.duration() || 0}
+          value={progress}
+          onChange={handleProgressChange}
+          className="w-full flex-1 accent-white hover:accent-neutral-200 h-1 rounded-lg"
         />
       </div>
       <div className="hidden md:flex w-full justify-end pr-2">
@@ -129,7 +166,7 @@ const PlayerContent: React.FC<PlayerContentProps> = ({ song, songUrl }) => {
             className="cursor-pointer"
             size={34}
           />
-          <Slider value={volume} onChange={(value) => setVolume(value)} />
+          <Slider value={volume} onChange={handleVolumeChange} />
         </div>
       </div>
     </div>
